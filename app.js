@@ -11,9 +11,7 @@ function getData(url){
   return JSON.parse(ajax.response)
 }
 
-window.addEventListener('hashchange', newsDetail())
-
-function newFeed(){
+function newsFeed(){
   const newsFeed = getData(NEWS_URL);
   const newsList = [];
   
@@ -44,3 +42,20 @@ function newsDetail(){
 
   content.appendChild(title);
 }
+
+function router(){
+  const routePath = location.hash;
+  
+  if(routePath === ''){
+    newsFeed();
+  } else {
+    newsDetail();
+  }
+}
+
+
+
+
+
+
+window.addEventListener('hashchange', router);
