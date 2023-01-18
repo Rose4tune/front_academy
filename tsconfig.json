@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "strict": true, //엄격하게 타입 적용
+        "target": "ES5", // 변환된 js의 버전을 어떤걸 쓸 것인가
+        "module": "CommonJS",
+        "alwaysStrict": true,
+        "noImplicitAny": true, //strict 세부 정보(any)
+        "noImplicitThis": true, //strict 세부 정보
+        "sourceMap": true,
+        "downlevelIteration": true
+    }
+}
