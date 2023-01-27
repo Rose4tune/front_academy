@@ -4,17 +4,27 @@ type Store = {
   currentPage: number;
   feeds: NewsFeed[];
 }
-type NewsFeed = {
+
+type News = { //인터섹션, 타입알리아스
   id: number;
-  comments_count: number;
+  time_ago: string;
+  title: string;
   url: string;
   user: string;
-  time_ago: string;
+  content: string;
+}
+type NewsFeed = News & {
+  comments_count: number;
   points: number;
-  title: string;
   read?: boolean; //옵셔널
 }
-
+type NewsDeail = News & {
+  comments: NewsComment[];
+}
+type NewsComment = News & {
+  comments: NewsComment[];
+  level: number;
+}
 
 const container: HTMLElement | null = document.getElementById('root');
 const ajax: XMLHttpRequest = new XMLHttpRequest();
@@ -26,14 +36,15 @@ const store: Store = {
   feeds: [],
 }
 
-function getData(url){
+// 제네릭(AjaxResponse, T) : "입력이 n개일때 출력도 n개이다" 라는 개념을 이용하는 것
+function getData<AjaxResponse>(url: string): AjaxResponse {
   ajax.open('GET', url, false);
   ajax.send();
 
   return JSON.parse(ajax.response);
 }
 
-function makeFeed(feeds) {
+function makeFeed(feeds: NewsFeed[]): NewsFeed[] {
   for (let i = 0; i < feeds.length; i++) {
     feeds[i].read = false;
   }
@@ -41,7 +52,7 @@ function makeFeed(feeds) {
   return feeds
 }
 
-function updateView(html){ // 타입 가드 함수
+function updateView(html: string): void { // 타입 가드 함수
   if(container){
     container.innerHTML = html;
   } else {
@@ -49,7 +60,7 @@ function updateView(html){ // 타입 가드 함수
   }
 }
 
-function newsFeed(){
+function newsFeed(): void {
   let newsFeed: NewsFeed[] = store.feeds;
   const newsList = [];
   let template = `
@@ -78,7 +89,7 @@ function newsFeed(){
   `;
 
   if(newsFeed.length === 0) {
-    newsFeed = store.feeds = makeFeed(getData(NEWS_URL));
+    newsFeed = store.feeds = makeFeed(getData<NewsFeed[]>(NEWS_URL));
   }
 
   for (let i = (store.currentPage - 1) * 10; i < store.currentPage * 10; i++) {
@@ -103,15 +114,15 @@ function newsFeed(){
   }
 
   template = template.replace('{{__news_feed__}}', newsList.join(''))
-  template = template.replace('{{__prev_page__}}', store.currentPage > 1 ? store.currentPage - 1 : 1)
-  template = template.replace('{{__next_page__}}', store.currentPage < newsFeed.length/10 ? store.currentPage + 1 : newsFeed.length/10)
+  template = template.replace('{{__prev_page__}}', String(store.currentPage > 1 ? store.currentPage - 1 : 1));
+  template = template.replace('{{__next_page__}}', String(store.currentPage < newsFeed.length/10 ? store.currentPage + 1 : newsFeed.length/10));
   
   updateView(template)
 }
 
-function newsDetail() {
+function newsDetail(): void {
   const id = location.hash.substring(7);
-  const newsContent = getData(CONTENT_URL.replace('@id', id));
+  const newsContent = getData<NewsDeail>(CONTENT_URL.replace('@id', id));
   let template = `
     <div class="bg-gray-600 min-h-screen pb-8">
       <div class="bg-white text-xl">
@@ -148,31 +159,33 @@ function newsDetail() {
     }
   }
 
-  function makeComment(comments, called = 0) {
-    const commentString = [];
-
-    for (let i = 0; i < comments.length; i++) {
-      commentString.push(`
-        <div style="padding-left: ${called*40}px;" class="mt-4">
-          <div class="text-gray-400">
-            <i class="fa fa-sort-up mr-2"></i>
-            <strong>${comments[i].user}</strong> ${comments[i].time_ago}
-          </div>
-          <p class="text-gray-700">${comments[i].content}</p>
-        </div>`);
-
-        if(comments[i].comments.length > 0) {
-          commentString.push(makeComment(comments[i].comments, called + 1));
-        }
-    }
-
-    return commentString.join('');
-  }
-
   updateView(template.replace('{{__comments__}}', makeComment(newsContent.comments)))
 }
 
-function router() {
+
+function makeComment(comments: NewsComment[]): string {
+  const commentString = [];
+
+  for (let i = 0; i < comments.length; i++) {
+    const comment: NewsComment = comments[i]
+    commentString.push(`
+      <div style="padding-left: ${comment.level * 40}px;" class="mt-4">
+        <div class="text-gray-400">
+          <i class="fa fa-sort-up mr-2"></i>
+          <strong>${comment.user}</strong> ${comment.time_ago}
+        </div>
+        <p class="text-gray-700">${comment.content}</p>
+      </div>`);
+
+      if(comment.comments.length > 0) {
+        commentString.push(makeComment(comment.comments));
+      }
+  }
+
+  return commentString.join('');
+}
+
+function router(): void {
   const routePath = location.hash;
   
   if(routePath === '') {
