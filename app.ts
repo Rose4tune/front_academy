@@ -18,7 +18,7 @@ interface NewsFeed extends News {
   readonly points: number;
   read?: boolean; //옵셔널
 }
-interface NewsDeail extends News {
+interface NewsDetail extends News {
   readonly comments: NewsComment[];
 }
 interface NewsComment extends News {
@@ -36,34 +36,51 @@ const store: Store = {
   feeds: [],
 }
 
+// ** MIXIN **
+// class를 이용해서 상속을 구현하지만,
+// class의 extends를 사용하지않고 class를 단독의 객체로 바라보면서
+// 필요한 경우마다 class를 합성해서 새로운 기능으로 확장해 나가는 기법.
+// 상위 class를 n개를 받을 수 있고, 분기처리가 용이하여 extends 문법보다 유연성을 가진다
+
+function applyApiMinins(targetClass: any, baseClass:any[]): void{
+  baseClass.forEach(baseClass => {
+    Object.getOwnPropertyNames(baseClass.prototype).forEach(name => {
+      const descriptor = Object.getOwnPropertyDescriptor(baseClass.prototype, name);
+
+      if (descriptor) {
+        Object.defineProperty(targetClass.prototype, name, descriptor);
+      }
+    })
+  })
+}
+
 class Api {
-  url: string;
-  ajax: XMLHttpRequest;
+  getRequest<AjaxResponse>(url: string): AjaxResponse {
+    const ajax = new XMLHttpRequest();
+    ajax.open('GET', url, false);
+    ajax.send();
 
-  constructor(url: string) {
-    this.url = url;
-    this.ajax = new XMLHttpRequest();
-  }
-
-  protected getRequest<AjaxResponse>(): AjaxResponse {
-    this.ajax.open('GET', this.url, false);
-    this.ajax.send();
-
-    return JSON.parse(this.ajax.response);
+    return JSON.parse(ajax.response);
   }
 }
 
-class NewsFeedApi extends Api {
+class NewsFeedApi  {
   getData(): NewsFeed[] {
-    return this.getRequest<NewsFeed[]>();
+    return this.getRequest<NewsFeed[]>(NEWS_URL);
   }
 }
 
-class NewsDetailApi extends Api {
-  getData(): NewsDeail[] {
-    return this.getRequest<NewsDeail[]>();
+class NewsDetailApi  {
+  getData(id: string): NewsDetail {
+    return this.getRequest<NewsDetail>(CONTENT_URL.replace('@id', id));
   }
 }
+
+interface NewsFeedApi extends Api {};
+interface NewsDetailApi extends Api {};
+
+applyApiMinins(NewsFeedApi, [Api]);
+applyApiMinins(NewsDetailApi, [Api]);
 
 // 제네릭(AjaxResponse, T) : "입력이 n개일때 출력도 n개이다" 라는 개념을 이용하는 것
 // function getData<AjaxResponse>(url: string): AjaxResponse {
@@ -91,9 +108,9 @@ function updateView(html: string): void { // 타입 가드 함수
 }
 
 function newsFeed(): void {
-  const api = new NewsFeedApi(NEWS_URL)
+  const api = new NewsFeedApi();
   let newsFeed: NewsFeed[] = store.feeds;
-  const newsList = [];
+  const newsList: string[] = [];
   let template = `
   <div class="bg-gray-600 min-h-screen">
     <div class="bg-white text-xl">
@@ -153,8 +170,8 @@ function newsFeed(): void {
 
 function newsDetail(): void {
   const id = location.hash.substring(7);
-  const api = new NewsDetailApi(CONTENT_URL.replace('@id', id))
-  const newsContent = api.getData();
+  const api = new NewsDetailApi();
+  const newsDetail: NewsDetail = api.getData(id);
   let template = `
     <div class="bg-gray-600 min-h-screen pb-8">
       <div class="bg-white text-xl">
@@ -173,9 +190,9 @@ function newsDetail(): void {
       </div>
 
       <div class="h-full border rounded-xl bg-white m-6 p-4 ">
-        <h2>${newsContent.title}</h2>
+        <h2>${newsDetail.title}</h2>
         <div class="text-gray-400 h-20">
-          ${newsContent.content}
+          ${newsDetail.content}
         </div>
 
         {{__comments__}}
@@ -191,7 +208,7 @@ function newsDetail(): void {
     }
   }
 
-  updateView(template.replace('{{__comments__}}', makeComment(newsContent.comments)))
+  updateView(template.replace('{{__comments__}}', makeComment(newsDetail.comments)))
 }
 
 
