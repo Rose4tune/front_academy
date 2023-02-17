@@ -26,6 +26,11 @@ interface NewsComment extends News {
   readonly level: number;
 }
 
+interface RouteInfo {
+  path: string;
+  page: View;
+}
+
 const ajax: XMLHttpRequest = new XMLHttpRequest();
 const content = document.createElement('div');
 const NEWS_URL = 'https://api.hnpwa.com/v0/news/1.json';
@@ -90,7 +95,7 @@ applyApiMinins(NewsDetailApi, [Api]);
 // }
 // class Api를 만들고 NewsFeedApi, NewsDetailApi 합침
 
-class View {
+abstract class View {
   template: string;
   renderTemplate: string;
   container: HTMLElement;
@@ -130,6 +135,44 @@ class View {
 
   clearHtmlList(): void {
     this.htmlList = [];
+  }
+
+  abstract render(): void;
+}
+
+class Router {
+  routeTable: RouteInfo[];
+  defaultRoute: RouteInfo | null;
+
+  constructor() {
+    window.addEventListener('hashchange', this.route.bind(this));
+
+    this.routeTable = [];
+    this.defaultRoute = null;
+  }
+
+  setDefaultPage(page: View): void {
+    this.defaultRoute = {path:'', page};
+  }
+
+  addRoutePath(path: string, page: View): void {
+    this.routeTable.push({path, page});
+  }
+
+  route() {
+    const routePath = location.hash;
+
+    if(routePath === '' && this.defaultRoute) {
+      this.defaultRoute.page.render();
+    }
+
+    for (const routeInfo of this.routeTable) {
+      if(routePath.indexOf(routeInfo.path) >= 0) {
+        routeInfo.page.render();
+        break;
+      }
+    }
+
   }
 }
 
@@ -175,6 +218,8 @@ class NewsFeedView extends View {
   }
 
   render(): void {
+    store.currentPage = Number(location.hash.substring(7) || 1);
+
     for (let i = (store.currentPage - 1) * 10; i < store.currentPage * 10; i++) {
       const { id, title, comments_count, user, points, time_ago, read } = this.feeds[i];
       this.addHtml(`
@@ -289,20 +334,13 @@ class NewsDetailView extends View {
 
 
 
+const router: Router = new Router();
+const newsFeedView = new NewsFeedView('root');
+const newsDetailView = new NewsDetailView('root');
 
-function router(): void {
-  const routePath = location.hash;
-  
-  if(routePath === '') {
-    newsFeed();
-  } else if(routePath.indexOf('#/page/') >= 0) {
-    store.currentPage = Number(routePath.substring(7));
-    newsFeed();
-  } else {
-    newsDetail();
-  }
-}
+router.setDefaultPage(newsFeedView);
 
+router.addRoutePath('/page/', newsFeedView);
+router.addRoutePath('/show/', newsDetailView);
 
-window.addEventListener('hashchange', router);
-router()
+router.route();
