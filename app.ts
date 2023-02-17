@@ -26,7 +26,6 @@ interface NewsComment extends News {
   readonly level: number;
 }
 
-const container: HTMLElement | null = document.getElementById('root');
 const ajax: XMLHttpRequest = new XMLHttpRequest();
 const content = document.createElement('div');
 const NEWS_URL = 'https://api.hnpwa.com/v0/news/1.json';
@@ -91,11 +90,32 @@ applyApiMinins(NewsDetailApi, [Api]);
 // }
 // class Api를 만들고 NewsFeedApi, NewsDetailApi 합침
 
-class NewsFeedView {
-  constructor() {
-    const api = new NewsFeedApi();
-    let newsFeed: NewsFeed[] = store.feeds;
-    let template = `
+class View {
+  template: string;
+  container: HTMLElement;
+
+  constructor(containerId: string, template: string) {
+    const containerElement = document.getElementById(containerId);
+
+    if(!containerElement) {
+      throw '최상위 컨테이너가 없어 UI를 진행하지 못합니다.';
+    }
+
+    this.container = containerElement;
+    this.template = template;
+  }
+
+  updateView(html: string): void {
+    this.container.innerHTML = html;
+  }
+}
+
+class NewsFeedView extends View {
+  api: NewsFeedApi;
+  feeds: NewsFeed[];
+
+  constructor(containerId: string) {
+    let template: string = `
     <div class="bg-gray-600 min-h-screen">
       <div class="bg-white text-xl">
         <div class="mx-auto px-4">
@@ -120,8 +140,14 @@ class NewsFeedView {
     </div>
     `;
 
-    if(newsFeed.length === 0) {
-      newsFeed = store.feeds = makeFeed(api.getData());
+    super(containerId, template);
+    
+    this.api = new NewsFeedApi();
+    this.feeds = store.feeds;
+    
+    if(this.feeds.length === 0) {
+      this.feeds = store.feeds = this.api.getData();
+      this.makeFeeds();
     }
   }
 
@@ -156,16 +182,14 @@ class NewsFeedView {
     updateView(template)
   }
 
-  makeFeed(feeds: NewsFeed[]): NewsFeed[] {
-    for (let i = 0; i < feeds.length; i++) {
-      feeds[i].read = false;
+  makeFeeds(): void {
+    for (let i = 0; i < this.feeds.length; i++) {
+      this.feeds[i].read = false;
     }
-
-    return feeds
   }
 }
 
-class NewsDetailView {
+class NewsDetailView extends View {
   constructor() {
     let template = `
       <div class="bg-gray-600 min-h-screen pb-8">
@@ -236,13 +260,6 @@ class NewsDetailView {
 }
 
 
-function updateView(html: string): void { // 타입 가드 함수
-  if(container){
-    container.innerHTML = html;
-  } else {
-    console.error('최상위 컨테이너가 없어 UI를 진행하지 못합니다.')
-  }
-}
 
 
 function newsDetail(): void {
